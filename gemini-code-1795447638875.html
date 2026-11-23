@@ -1,0 +1,1508 @@
+<!DOCTYPE html>
+<html lang="kk" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Семей - Ертіс Су Мониторингі (Enterprise Platform)</title>
+ 
+<script>
+(function () {
+  try {
+    var t = localStorage.getItem('theme');
+    var dark = t ? t === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.classList.toggle('dark', dark);
+  } catch (e) {}
+})();
+</script>
+ 
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+ 
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+ 
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        fontFamily: {
+          sans: ['Rubik', 'system-ui', 'Segoe UI', 'Arial', 'sans-serif'],
+          mono: ['"JetBrains Mono"', 'ui-monospace', 'Consolas', 'monospace']
+        }
+      }
+    }
+  };
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+ 
+<style>
+  :root {
+    --ink: #0b2a3d; --muted: #46667a;
+    --glass: rgba(255, 255, 255, .62);
+    --glass-edge: rgba(255, 255, 255, .85);
+    --line: rgba(11, 79, 108, .16);
+    --field: rgba(255, 255, 255, .75);
+    --accent: #0e9fb3; --ok: #0b9b7c; --warn: #c98609; --danger: #d92f43;
+    --shadow: 0 18px 50px -22px rgba(11, 79, 108, .45);
+  }
+  .dark {
+    --ink: #e6f7ff; --muted: #8fb4c8;
+    --glass: rgba(7, 30, 47, .55);
+    --glass-edge: rgba(125, 211, 252, .18);
+    --line: rgba(125, 211, 252, .15);
+    --field: rgba(4, 22, 36, .6);
+    --accent: #2dd4e6; --ok: #34d3b0; --warn: #f2b134; --danger: #ff6677;
+    --shadow: 0 18px 50px -22px rgba(0, 0, 0, .7);
+  }
+ 
+  html { scroll-behavior: smooth; }
+  body { color: var(--ink); font-feature-settings: "tnum"; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+ 
+  .bg-scene {
+    position: fixed; inset: 0; z-index: -1; overflow: hidden;
+    background: linear-gradient(160deg, #e2f7fb 0%, #bfe6f2 48%, #8fcde6 100%);
+  }
+  .dark .bg-scene { background: linear-gradient(160deg, #04141f 0%, #07283d 55%, #0a4a63 100%); }
+  .bg-scene i {
+    position: absolute; border-radius: 50%; filter: blur(70px); opacity: .55;
+    animation: drift 38s ease-in-out infinite alternate;
+  }
+  .bg-scene i:nth-child(1) { width: 46vw; height: 46vw; left: -12vw; top: -14vw; background: #38d5e6; }
+  .bg-scene i:nth-child(2) { width: 38vw; height: 38vw; right: -10vw; top: 22vh; background: #3b82f6; animation-duration: 46s; }
+  .bg-scene i:nth-child(3) { width: 34vw; height: 34vw; left: 28vw; bottom: -18vw; background: #14b8a6; animation-duration: 52s; }
+  .dark .bg-scene i { opacity: .28; }
+  @keyframes drift { to { transform: translate3d(4vw, 3vh, 0) scale(1.08); } }
+ 
+  .glass {
+    background: var(--glass);
+    border: 1px solid var(--glass-edge);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    backdrop-filter: blur(18px) saturate(140%);
+    box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, .25);
+  }
+  .muted { color: var(--muted); }
+  .divider { border-color: var(--line); }
+ 
+  .field {
+    width: 100%; padding: .65rem .9rem; border-radius: .75rem;
+    background: var(--field); border: 1px solid var(--line); color: var(--ink);
+    font-size: .95rem; transition: border-color .15s, box-shadow .15s;
+  }
+  .field:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); outline: none; }
+  .dark select option { background: #0b2a3d; color: #e6f7ff; }
+ 
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
+    padding: .65rem 1.1rem; border-radius: .75rem; font-weight: 500; font-size: .92rem;
+    border: 1px solid var(--line); background: var(--field); color: var(--ink);
+    cursor: pointer; transition: transform .12s, background .15s, border-color .15s;
+  }
+  .btn:hover { border-color: var(--accent); }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-primary {
+    background: linear-gradient(135deg, #0e9fb3, #1d6fd1); color: #fff; border-color: transparent;
+    box-shadow: 0 10px 24px -10px rgba(14, 159, 179, .9);
+  }
+  .btn-primary:hover { filter: brightness(1.08); border-color: transparent; }
+  .icon-btn { width: 2.5rem; height: 2.5rem; padding: 0; border-radius: .75rem; }
+ 
+  .tab-btn { padding: .5rem 1.1rem; border-radius: .75rem; font-weight: 500; font-size: .92rem; transition: all .2s; border: 1px solid transparent; }
+  .tab-btn.active { background: var(--accent); color: #fff; box-shadow: 0 4px 14px rgba(14,159,179, .4); }
+  .tab-btn:not(.active):hover { background: var(--field); border-color: var(--line); }
+ 
+  .badge { display: inline-flex; align-items: center; gap: .4rem; padding: .18rem .65rem; border-radius: 999px; font-size: .8rem; font-weight: 500; }
+  .badge i { width: .5rem; height: .5rem; border-radius: 50%; background: currentColor; }
+  .badge-ok { color: var(--ok); background: color-mix(in srgb, var(--ok) 16%, transparent); }
+  .badge-warn { color: var(--warn); background: color-mix(in srgb, var(--warn) 18%, transparent); }
+  .badge-danger { color: var(--danger); background: color-mix(in srgb, var(--danger) 16%, transparent); }
+  .t-ok { color: var(--ok); } .t-warn { color: var(--warn); } .t-danger { color: var(--danger); }
+ 
+  .pulse-dot { position: relative; width: .6rem; height: .6rem; border-radius: 50%; background: var(--ok); }
+  .pulse-dot::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: inherit; animation: ping 1.8s ease-out infinite; }
+  @keyframes ping { 0% { transform: scale(1); opacity: .7; } 100% { transform: scale(3); opacity: 0; } }
+ 
+  .alert-banner {
+    display: flex; align-items: center; gap: 1rem; position: relative; overflow: hidden;
+    padding: .9rem 1.2rem; border-radius: 1.1rem; color: #fff;
+    background: linear-gradient(90deg, #a30f26, #e03a4b, #a30f26); background-size: 200% 100%;
+    animation: alertflow 3.2s linear infinite, alertglow 1.2s ease-in-out infinite alternate;
+  }
+  .alert-banner[hidden] { display: none; }
+  @keyframes alertflow { to { background-position: -200% 0; } }
+  @keyframes alertglow { from { box-shadow: 0 8px 30px -10px rgba(224,58,75,.55); } to { box-shadow: 0 12px 50px -4px rgba(224,58,75,.95); } }
+ 
+  .gauge-wrap { position: relative; flex: none; width: 74px; height: 136px; }
+  .gauge {
+    position: absolute; right: 0; top: 0; bottom: 0; width: 40px; border-radius: 12px; overflow: hidden;
+    background: color-mix(in srgb, var(--ink) 8%, transparent); border: 1px solid var(--line);
+  }
+  .gauge-fill {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 0;
+    background: linear-gradient(180deg, #67e8f9, #0e7490 70%, #164e63);
+    transition: height 1.2s cubic-bezier(.2, .8, .2, 1);
+  }
+  .num { font-family: 'JetBrains Mono', ui-monospace, monospace; font-weight: 700; letter-spacing: -.02em; }
+ 
+  #map { border-radius: 1rem; z-index: 10; background: #1a2a3a; height: 380px; width: 100%; }
+  .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: var(--glass); color: var(--ink); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border: 1px solid var(--glass-edge); }
+  .dark .leaflet-popup-content-wrapper, .dark .leaflet-popup-tip { background: rgba(7, 30, 47, .92); }
+  .leaflet-popup-content { margin: 12px 14px; font-family: 'Rubik', system-ui, sans-serif; }
+ 
+  .tbl th { text-align: left; font-weight: 500; color: var(--muted); font-size: .85rem; padding: .65rem .9rem; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  .tbl td { padding: .6rem .9rem; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  .tbl tbody tr:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+ 
+  dialog.sheet {
+    margin: auto; width: min(94vw, 32rem); padding: 0; border-radius: 1.4rem; color: var(--ink);
+    background: var(--glass); border: 1px solid var(--glass-edge);
+    -webkit-backdrop-filter: blur(24px) saturate(150%); backdrop-filter: blur(24px) saturate(150%);
+    box-shadow: 0 30px 80px -20px rgba(0, 0, 0, .6);
+  }
+  .dark dialog.sheet { background: rgba(7, 30, 47, .92); }
+  dialog.sheet::backdrop { background: rgba(2, 18, 30, .6); backdrop-filter: blur(6px); }
+  
+  .toast { display: flex; gap: .6rem; align-items: center; padding: .75rem 1rem; border-radius: .9rem; max-width: 22rem; font-size: .92rem;
+    background: rgba(7, 30, 47, .94); color: #e6f7ff; border: 1px solid rgba(125, 211, 252, .25); box-shadow: 0 14px 40px -12px rgba(0,0,0,.6); z-index: 9999; }
+
+  /* AI ASSISTANT WIDGET */
+  .ai-fab {
+    position: fixed; right: 1.25rem; bottom: 1.25rem; z-index: 2500;
+    display: inline-flex; align-items: center; gap: .6rem;
+    padding: .85rem 1.25rem; border-radius: 999px; border: 1px solid rgba(255,255,255,.3);
+    background: linear-gradient(135deg, #0e9fb3, #1d6fd1); color: #fff;
+    font-weight: 600; font-size: .92rem; cursor: pointer;
+    box-shadow: 0 14px 35px -10px rgba(14, 159, 179, .85);
+    transition: transform .15s, filter .15s;
+  }
+  .ai-fab:hover { transform: translateY(-2px); filter: brightness(1.08); }
+  .ai-panel {
+    position: fixed; right: 1.25rem; bottom: 5.25rem; z-index: 2500;
+    width: min(400px, calc(100vw - 2rem)); height: min(560px, calc(100vh - 8rem));
+    display: flex; flex-direction: column; border-radius: 1.4rem; overflow: hidden;
+    background: rgba(240, 250, 255, .94); border: 1px solid var(--glass-edge);
+    -webkit-backdrop-filter: blur(22px) saturate(150%); backdrop-filter: blur(22px) saturate(150%);
+    box-shadow: 0 28px 70px -20px rgba(0, 0, 0, .55);
+  }
+  .dark .ai-panel { background: rgba(7, 28, 44, .94); }
+  .ai-panel.hidden { display: none; }
+  .ai-msg {
+    max-width: 88%; padding: .7rem .95rem; border-radius: 1rem;
+    font-size: .88rem; line-height: 1.45; word-wrap: break-word;
+  }
+  .ai-msg-user {
+    align-self: flex-end; color: #fff;
+    background: linear-gradient(135deg, #0e9fb3, #1d6fd1);
+    border-bottom-right-radius: .3rem;
+  }
+  .ai-msg-bot {
+    align-self: flex-start; color: var(--ink);
+    background: var(--field); border: 1px solid var(--line);
+    border-bottom-left-radius: .3rem;
+  }
+  .ai-chip {
+    font-size: .76rem; padding: .35rem .7rem; border-radius: 999px;
+    background: var(--field); border: 1px solid var(--line); color: var(--ink);
+    cursor: pointer; white-space: nowrap; transition: border-color .15s, background .15s;
+  }
+  .ai-chip:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+  .ai-dots span {
+    display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent); margin-right: 4px;
+    animation: aiBounce 1.2s infinite ease-in-out;
+  }
+  .ai-dots span:nth-child(2) { animation-delay: .18s; }
+  .ai-dots span:nth-child(3) { animation-delay: .36s; }
+  @keyframes aiBounce { 0%, 80%, 100% { transform: scale(.6); opacity: .4; } 40% { transform: scale(1); opacity: 1; } }
+</style>
+</head>
+ 
+<body class="font-sans min-h-screen antialiased">
+<div class="bg-scene" aria-hidden="true"><i></i><i></i><i></i></div>
+ 
+<!-- NAVBAR -->
+<header class="glass sticky top-0 z-[1100] border-x-0 border-t-0 rounded-none">
+  <div class="max-w-[1500px] mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <div class="w-11 h-11 rounded-2xl grid place-items-center shrink-0" style="background:linear-gradient(135deg,#0e9fb3,#1d6fd1)">
+        <svg viewBox="0 0 24 24" class="w-6 h-6" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9c2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/><path d="M2 14c2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/><path d="M2 19c2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/></svg>
+      </div>
+      <div>
+        <h1 class="text-lg font-semibold leading-tight">Семей - Ертіс Су Мониторингі</h1>
+        <p class="text-xs muted">Ғылыми-зерттеу және аналитикалық платформа</p>
+      </div>
+    </div>
+ 
+    <!-- NAVIGATION TABS -->
+    <nav id="mainNav" class="flex items-center gap-1 bg-field p-1 rounded-xl border divider overflow-x-auto">
+      <button class="tab-btn active" data-tab="dashboard">Басты бет</button>
+      <button class="tab-btn" data-tab="weekly">7 күндік Анализ</button>
+      <button class="tab-btn" data-tab="analytics">Зерттеу деректері</button>
+      <button class="tab-btn" data-tab="stations">Бекеттер</button>
+      <button class="tab-btn" data-tab="simulation">Модельдеу</button>
+      <button class="tab-btn" data-tab="profile">Профиль</button>
+    </nav>
+ 
+    <div class="flex items-center gap-3">
+      <div class="text-right leading-tight hidden sm:block">
+        <div id="clockTime" class="num text-base">--:--:--</div>
+        <div id="clockDate" class="text-xs muted">—</div>
+      </div>
+      <div id="statusPill" class="flex items-center gap-2 px-3 py-1.5 rounded-full border divider" style="background:var(--field)">
+        <span class="pulse-dot"></span>
+        <span id="statusText" class="text-sm font-medium">Online Supabase</span>
+      </div>
+      <!-- USER PROFILE BADGE -->
+      <div id="userBadge" class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl border divider bg-field cursor-pointer hover:border-accent transition-colors" onclick="document.querySelector('[data-tab=\'profile\']').click()">
+        <div id="badgeAvatar" class="w-7 h-7 rounded-full bg-accent/20 grid place-items-center font-bold text-xs text-accent">--</div>
+        <div class="text-left text-xs leading-tight">
+          <div id="badgeName" class="font-semibold">Жүктелуде...</div>
+          <div id="badgeRole" class="muted">Күте тұрыңыз</div>
+        </div>
+      </div>
+      <button id="themeBtn" class="btn icon-btn" type="button" title="Тақырыпты ауыстыру">
+        <svg id="iconMoon" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+ 
+<main class="max-w-[1500px] mx-auto px-4 py-5 space-y-5">
+ 
+  <!-- ДАБЫЛ БАННЕРІ -->
+  <div id="alertBanner" class="alert-banner" hidden>
+    <div class="flex-1 min-w-0">
+      <div class="font-semibold text-lg">Қауіпті су деңгейі анықталды!</div>
+      <div id="alertText" class="text-sm opacity-95"></div>
+    </div>
+    <button id="alertClose" class="btn border-transparent bg-white/20 hover:bg-white/30 text-white" type="button">Жабу</button>
+  </div>
+ 
+  <!-- ================= TAB 1: DASHBOARD ================= -->
+  <div id="tab-dashboard" class="space-y-5">
+    <section class="glass rounded-3xl p-4 flex flex-wrap items-end gap-4">
+      <div class="w-full sm:w-72">
+        <label for="stationSelect" class="block text-sm muted mb-1">Бақылау бекеті</label>
+        <select id="stationSelect" class="field"><option>Жүктелуде…</option></select>
+      </div>
+      <div class="w-full sm:w-52">
+        <label for="rangeSelect" class="block text-sm muted mb-1">График кезеңі</label>
+        <select id="rangeSelect" class="field">
+          <option value="12">Соңғы 12 өлшем</option>
+          <option value="24" selected>Соңғы 24 өлшем</option>
+          <option value="48">Соңғы 48 өлшем</option>
+        </select>
+      </div>
+      <div class="ml-auto flex items-center gap-3">
+        <button id="refreshBtn" class="btn">Жаңарту</button>
+        <button id="openEntry" class="btn btn-primary">Өлшем енгізу</button>
+      </div>
+    </section>
+ 
+    <!-- KPI CARDS -->
+    <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+      <article class="glass rounded-3xl p-5 flex items-center justify-between gap-3">
+        <div class="min-w-0">
+          <h2 class="text-sm muted">Ағымдағы су деңгейі</h2>
+          <div class="mt-2 flex items-baseline gap-1.5"><span id="kpiLevel" class="num text-4xl">—</span><span class="text-lg muted">см</span></div>
+          <p id="kpiLevelSub" class="text-xs muted mt-2">Қауіпті шек: 450 см (Семей)</p>
+          <p id="stationName" class="text-sm font-medium mt-3 truncate">—</p>
+        </div>
+        <div class="gauge-wrap">
+          <div id="gauge" class="gauge">
+            <div id="gaugeFill" class="gauge-fill" style="height: 50%;"></div>
+            <div id="tickWarn" class="gauge-tick" style="position: absolute; left: 0; right: 0; border-top: 2px solid var(--warn); top: 35%;"></div>
+            <div id="tickCrit" class="gauge-tick" style="position: absolute; left: 0; right: 0; border-top: 2px solid var(--danger); top: 15%;"></div>
+          </div>
+        </div>
+      </article>
+
+      <article class="glass rounded-3xl p-5">
+        <h2 class="text-sm muted">Ағыс жылдамдығы</h2>
+        <div class="mt-2 flex items-center gap-2"><span id="kpiSpeed" class="num text-4xl">1.45</span><span class="text-lg muted">м/с</span></div>
+        <p id="kpiSpeedSub" class="text-xs muted mt-3">Семей аспалы көпірі тұсында (Ғылыми дерек)</p>
+      </article>
+
+      <article class="glass rounded-3xl p-5">
+        <h2 class="text-sm muted">Тәуліктік өзгеріс</h2>
+        <div class="mt-2 flex items-center gap-2"><span id="kpiDelta" class="num text-4xl">+1.2</span><span class="text-lg muted">см</span></div>
+        <p id="kpiDeltaSub" class="text-xs muted mt-3">Шүлбі СЭС жіберу режиміне сай</p>
+      </article>
+
+      <article class="glass rounded-3xl p-5">
+        <h2 class="text-sm muted">Су температурасы</h2>
+        <div class="mt-2 flex items-baseline gap-1.5"><span id="kpiTemp" class="num text-4xl">—</span><span class="text-lg muted">°C</span></div>
+        <p id="kpiTempSub" class="text-xs muted mt-3">Термометриялық мониторинг</p>
+      </article>
+
+      <article class="glass rounded-3xl p-5">
+        <h2 class="text-sm muted">Ағымдағы статус</h2>
+        <div class="mt-3"><span id="kpiStatus" class="badge badge-ok text-base px-3 py-1.5"><i></i><span id="kpiStatusText">Тұрақты режим</span></span></div>
+        <p id="kpiStatusSub" class="text-xs muted mt-4">Supabase серверімен синхрондалған</p>
+      </article>
+    </section>
+ 
+    <!-- CHART & MAP -->
+    <section class="grid grid-cols-1 xl:grid-cols-5 gap-5">
+      <article class="glass rounded-3xl p-5 xl:col-span-3 flex flex-col">
+        <h2 class="text-lg font-semibold mb-3">Су деңгейінің динамикасы (Ертіс өзені)</h2>
+        <div class="relative flex-1 min-h-[340px]"><canvas id="levelChart"></canvas></div>
+      </article>
+      <article class="glass rounded-3xl p-5 xl:col-span-2 flex flex-col">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-lg font-semibold">Ертіс өзені және Семей картасы</h2>
+          <span class="text-xs muted bg-accent/10 text-accent px-2.5 py-1 rounded-lg">Real GIS Hydro</span>
+        </div>
+        <div id="map"></div>
+      </article>
+    </section>
+ 
+    <!-- TABLE -->
+    <section class="glass rounded-3xl p-5">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-lg font-semibold">Өлшемдер тарихы (Экспорт)</h2>
+        <button id="csvBtn" class="btn btn-primary text-sm">CSV жүктеу</button>
+      </div>
+      <div class="overflow-x-auto rounded-2xl border divider">
+        <table class="tbl w-full text-sm">
+          <thead><tr><th>Уақыт</th><th>Деңгей, см</th><th>Температура, °C</th><th>Статус</th></tr></thead>
+          <tbody id="tableBody"><tr><td colspan="4" class="muted text-center py-4">Жүктелуде…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <!-- ================= TAB 2: WEEKLY ANALYTICS ================= -->
+  <div id="tab-weekly" class="space-y-6 hidden">
+    <div class="glass rounded-3xl p-6 space-y-6 bg-gradient-to-br from-slate-900/40 via-cyan-950/20 to-slate-900/40 border border-accent/20">
+      <div class="flex flex-wrap items-center justify-between gap-4 border-b divider pb-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-accent animate-pulse"></span>
+            <h2 class="text-2xl font-bold tracking-tight">7 Күндік Аналитика Және Стабильділік Мониторы</h2>
+          </div>
+          <p class="muted text-sm mt-1">Ертіс өзенінің таңдалған гидропостындағы соңғы апталық математикалық дисперсиясы</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="glass p-5 rounded-2xl space-y-2 border-t-4 border-cyan-400 relative overflow-hidden">
+          <div class="text-xs font-bold uppercase tracking-wider muted">Ағымдағы Деңгей</div>
+          <div class="num text-3xl font-extrabold text-accent" id="weekCurLevel">— см</div>
+        </div>
+        <div class="glass p-5 rounded-2xl space-y-2 border-t-4 border-blue-500 relative overflow-hidden">
+          <div class="text-xs font-bold uppercase tracking-wider muted">7 Күндік Орташа Мән</div>
+          <div class="num text-3xl font-extrabold text-blue-400" id="weekAvgLevel">— см</div>
+        </div>
+        <div class="glass p-5 rounded-2xl space-y-2 border-t-4 border-emerald-400 relative overflow-hidden">
+          <div class="text-xs font-bold uppercase tracking-wider muted">Тұрақтылық Коэффициенті</div>
+          <div class="num text-3xl font-extrabold text-emerald-400">98.2%</div>
+        </div>
+        <div class="glass p-5 rounded-2xl space-y-2 border-t-4 border-purple-400 relative overflow-hidden">
+          <div class="text-xs font-bold uppercase tracking-wider muted">Мин / Макс (7 күн)</div>
+          <div class="num text-2xl font-extrabold text-purple-400 mt-2" id="weekMinMax">— см</div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 xl:grid-cols-12 gap-6">
+        <div class="glass p-6 rounded-3xl xl:col-span-7 flex flex-col justify-between space-y-4">
+          <div class="flex items-center justify-between border-b divider pb-3">
+            <h3 class="font-semibold text-lg flex items-center gap-2">Соңғы 7 Күндегі Өзгеріс Динамикасы</h3>
+            <span class="text-xs muted bg-field px-3 py-1 rounded-lg border divider">Метрика: см</span>
+          </div>
+          <div class="relative h-[300px] w-full"><canvas id="weeklyChart"></canvas></div>
+        </div>
+
+        <div class="glass p-6 rounded-3xl xl:col-span-5 space-y-4 flex flex-col justify-between">
+          <div class="flex items-center justify-between border-b divider pb-3">
+            <h3 class="font-semibold text-lg">Прогрессивті Салыстыру (Кесте)</h3>
+          </div>
+          <div id="weeklyVisualBars" class="space-y-2 overflow-y-auto max-h-[300px] pr-2"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+ 
+  <!-- ================= TAB 3: RESEARCH & ANALYTICS ================= -->
+  <div id="tab-analytics" class="space-y-5 hidden">
+    <div class="glass rounded-3xl p-6 space-y-6">
+      <div class="flex flex-wrap items-center justify-between gap-4 border-b divider pb-4">
+        <div>
+          <h2 class="text-xl font-semibold">Ғылыми Зерттеулер Және Аналитика (Research Data)</h2>
+          <p class="muted text-sm">Гидрологиялық болжамдар мен тарихи мәліметтер қоры</p>
+        </div>
+        <button id="saveAnalyticsBtn" class="btn btn-primary">Зерттеуді сақтау (Supabase)</button>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div class="glass p-5 rounded-2xl space-y-3">
+          <h3 class="font-semibold text-base text-accent">Ертіс суының ғылыми-тарихи анықтамасы</h3>
+          <p class="text-xs muted">Бұл ақпарат базада сақталады және барлық экологтарға қолжетімді.</p>
+          <textarea id="anHistoricalNotes" class="field text-sm" rows="8"></textarea>
+        </div>
+        <div class="glass p-5 rounded-2xl space-y-3">
+          <h3 class="font-semibold text-base text-accent">Гидрологиялық болжам (Институт дерегі)</h3>
+          <p class="text-xs muted">Модельдеу нәтижесінде алынған кешенді есептер.</p>
+          <textarea id="anForecastText" class="field text-sm" rows="8"></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+ 
+  <!-- ================= TAB 4: STATIONS ================= -->
+  <div id="tab-stations" class="space-y-5 hidden">
+    <div class="glass rounded-3xl p-6 space-y-5">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-semibold">Бақылау бекеттерін (Гидропосттарды) басқару</h2>
+          <p class="muted text-sm">Бекеттердің координаттарын және бастапқы параметрлерін баптау.</p>
+        </div>
+        <button id="openAddStation" class="btn btn-primary">+ Жаңа бекет қосу</button>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="stationsListContainer"></div>
+    </div>
+  </div>
+ 
+  <!-- ================= TAB 5: SIMULATION ================= -->
+  <div id="tab-simulation" class="space-y-5 hidden">
+    <div class="glass rounded-3xl p-6 space-y-6">
+      <div class="flex flex-wrap items-center justify-between gap-4 border-b divider pb-4">
+        <div>
+          <h2 class="text-xl font-semibold">Тасқынды Модельдеу Жүйесі (Flood Simulation)</h2>
+          <p class="muted text-sm">Жасанды су деңгейін көтеру арқылы Семей аралдары мен жағалауларына төнетін қауіпті есептеу</p>
+        </div>
+      </div>
+
+      <div class="glass p-6 rounded-2xl space-y-4">
+        <div class="flex justify-between items-center">
+          <label for="simRange" class="font-semibold text-base">Су деңгейін жасанды көтеру симуляциясы:</label>
+          <span class="num text-3xl font-bold text-accent" id="simVal">+0 см</span>
+        </div>
+        <input type="range" id="simRange" min="0" max="250" step="5" value="0" class="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700">
+        <p class="text-xs muted">Жүгірткіні жылжыту арқылы қауіптілік аймақтарын көріңіз</p>
+      </div>
+      
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div class="glass p-5 rounded-2xl border-l-4 border-ok" id="simCard1">
+          <h3 class="font-bold">Бейбітшілік (Полковничий) аралы</h3>
+          <div class="text-sm font-bold pt-2 t-ok" id="simSector1">Қауіп деңгейі: Қалыпты (0%)</div>
+        </div>
+        <div class="glass p-5 rounded-2xl border-l-4 border-ok" id="simCard2">
+          <h3 class="font-bold">Мирный кенті жағалауы</h3>
+          <div class="text-sm font-bold pt-2 t-ok" id="simSector2">Қауіп деңгейі: Қалыпты (0%)</div>
+        </div>
+        <div class="glass p-5 rounded-2xl border-l-4 border-ok" id="simCard3">
+          <h3 class="font-bold">Шығыс (Восточный) саяжайлары</h3>
+          <div class="text-sm font-bold pt-2 t-ok" id="simSector3">Қауіп деңгейі: Қалыпты (0%)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= TAB 6: PROFILE ================= -->
+  <div id="tab-profile" class="space-y-5 hidden">
+    <div id="profileAuthContainer" class="max-w-md mx-auto glass rounded-3xl p-8 space-y-6 shadow-2xl">
+      <div class="text-center space-y-2">
+        <h2 id="authFormTitle" class="text-2xl font-bold">Жүйеге кіру</h2>
+        <p class="text-sm muted">Ғылыми платформаға рұқсат</p>
+      </div>
+
+      <div class="grid grid-cols-2 p-1 bg-field rounded-xl border divider">
+        <button id="authSwitchLogin" type="button" class="py-2 rounded-lg font-semibold text-sm transition-all bg-accent text-white shadow-md">Кіру</button>
+        <button id="authSwitchRegister" type="button" class="py-2 rounded-lg font-semibold text-sm transition-all muted">Тіркелу</button>
+      </div>
+
+      <form id="formLogin" class="space-y-4">
+        <div><label class="block text-sm muted mb-1">Email</label><input type="text" id="loginId" class="field" required placeholder="example@abai-tjd.kz"></div>
+        <button type="submit" class="btn btn-primary w-full py-3 mt-2 font-semibold">Жүйеге кіру</button>
+      </form>
+
+      <form id="formRegister" class="space-y-4 hidden">
+        <div><label class="block text-sm muted mb-1">Толық аты-жөні</label><input type="text" id="regName" class="field" required></div>
+        <div><label class="block text-sm muted mb-1">Email мекенжайы</label><input type="email" id="regEmail" class="field" required></div>
+        <div><label class="block text-sm muted mb-1">Телефон нөмірі</label><input type="tel" id="regPhone" class="field" required></div>
+        <div><label class="block text-sm muted mb-1">Лауазымы / Ұйымы</label><input type="text" id="regOrg" class="field" required></div>
+        <button type="submit" class="btn btn-primary w-full py-3 mt-2 font-semibold">Тіркелу</button>
+      </form>
+    </div>
+
+    <div id="profileUserCabinet" class="max-w-2xl mx-auto glass rounded-3xl p-8 space-y-6 shadow-2xl hidden">
+      <div class="flex flex-wrap items-center justify-between gap-4 border-b divider pb-5">
+        <div class="flex items-center gap-4">
+          <div id="cabAvatar" class="w-16 h-16 rounded-2xl bg-gradient-to-br from-accent to-blue-600 text-white grid place-items-center font-bold text-xl shadow-lg"></div>
+          <div>
+            <h2 id="cabName" class="text-xl font-bold"></h2>
+            <p id="cabOrg" class="text-sm muted"></p>
+          </div>
+        </div>
+        <button id="btnLogout" type="button" class="btn t-danger border-danger/30 hover:bg-danger/10">Жүйеден шығу</button>
+      </div>
+
+      <div class="space-y-4">
+        <h3 class="font-semibold text-lg">Профиль деректерін өзгерту</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div><label class="block text-sm muted mb-1">Аты-жөні</label><input type="text" id="editName" class="field"></div>
+          <div><label class="block text-sm muted mb-1">Email мекенжайы</label><input type="email" id="editEmail" class="field"></div>
+          <div><label class="block text-sm muted mb-1">Телефон нөмірі</label><input type="tel" id="editPhone" class="field"></div>
+          <div><label class="block text-sm muted mb-1">Лауазымы / Ұйымы</label><input type="text" id="editOrg" class="field"></div>
+        </div>
+        <div class="pt-2">
+          <button id="btnSaveProfile" type="button" class="btn btn-primary px-6">Өзгерістерді сақтау</button>
+        </div>
+      </div>
+
+      <div class="pt-5 mt-5 border-t divider space-y-4">
+        <h3 class="font-semibold text-lg text-accent">Байланыс ақпараты</h3>
+        <p class="text-sm muted">Семей – Ертіс Су Мониторингі платформасының байланыс бөлімі</p>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="glass p-4 rounded-2xl">
+            <div class="text-sm muted mb-2">Email мекенжайы</div>
+            <div class="font-semibold">nurlansanzhar51@gmail.com</div>
+          </div>
+
+          <div class="glass p-4 rounded-2xl">
+            <div class="text-sm muted mb-2">Телефон нөмірі</div>
+            <div class="font-semibold">+7 (778) 270-15-92</div>
+          </div>
+
+          <div class="glass p-4 rounded-2xl sm:col-span-2">
+            <div class="text-sm muted mb-2">Ұйым</div>
+            <div class="font-semibold">Семей – Ертіс Су Мониторингі</div>
+            <p class="text-xs muted mt-2">Ғылыми-зерттеу және аналитикалық платформа</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+ 
+<!-- ӨЛШЕМ ЕНГІЗУ МОДАЛДЫ ТЕРЕЗЕСІ -->
+<dialog id="entryDialog" class="sheet">
+  <form id="entryForm" class="p-6 space-y-4">
+    <div class="flex items-center justify-between">
+      <h2 class="text-xl font-semibold">Жаңа өлшем енгізу</h2>
+      <button type="button" id="entryClose" class="btn icon-btn">✕</button>
+    </div>
+    <div><label class="block text-sm muted mb-1">Бекет</label><select id="fStation" class="field"></select></div>
+    <div class="grid grid-cols-2 gap-4">
+      <div><label class="block text-sm muted mb-1">Су деңгейі, см</label><input id="fLevel" class="field num" type="number" step="0.1" required></div>
+      <div><label class="block text-sm muted mb-1">Температура, °C</label><input id="fTemp" class="field num" type="number" step="0.1" required></div>
+    </div>
+    <div class="flex justify-end gap-3 mt-4">
+      <button type="button" id="entryCancel" class="btn">Бас тарту</button>
+      <button type="submit" class="btn btn-primary">Сақтау</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ЖАҢА БЕКЕТ ҚОСУ МОДАЛДЫ ТЕРЕЗЕСІ -->
+<dialog id="stationDialog" class="sheet">
+  <form id="stationForm" class="p-6 space-y-4">
+    <div class="flex items-center justify-between">
+      <h2 class="text-xl font-semibold" id="stationModalTitle">Жаңа бекет қосу</h2>
+      <button type="button" id="stationClose" class="btn icon-btn">✕</button>
+    </div>
+    <input type="hidden" id="editStationId">
+    <div><label class="block text-sm muted mb-1">Бекет атауы</label><input type="text" id="stName" class="field" required></div>
+    <div class="grid grid-cols-2 gap-4">
+      <div><label class="block text-sm muted mb-1">Широта (Lat)</label><input type="number" step="0.0001" id="stLat" class="field num" required value="50.4150"></div>
+      <div><label class="block text-sm muted mb-1">Долгота (Lng)</label><input type="number" step="0.0001" id="stLng" class="field num" required value="80.2500"></div>
+    </div>
+    <div><label class="block text-sm muted mb-1">Бастапқы деңгей (см)</label><input type="number" step="0.1" id="stLevel" class="field num" required value="340.0"></div>
+    <div class="flex justify-end gap-3 mt-4">
+      <button type="button" id="stationCancel" class="btn">Бас тарту</button>
+      <button type="submit" class="btn btn-primary">Сақтау</button>
+    </div>
+  </form>
+</dialog>
+ 
+<div id="toasts" class="fixed bottom-24 right-4 z-[3000] flex flex-col gap-2"></div>
+
+<!-- AI КӨМЕКШІ ВИДЖЕТІ -->
+<button id="aiFab" class="ai-fab" type="button" aria-label="AI Көмекшіні ашу">
+  <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9L12 3z"/>
+    <path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9L19 15z"/>
+  </svg>
+  <span>Ертіс AI</span>
+</button>
+
+<section id="aiPanel" class="ai-panel hidden" aria-label="Ертіс AI Көмекші">
+  <div class="flex items-center justify-between px-4 py-3 border-b divider" style="background:linear-gradient(135deg, rgba(14,159,179,.22), rgba(29,111,209,.18))">
+    <div class="flex items-center gap-2.5">
+      <div class="w-8 h-8 rounded-xl grid place-items-center text-white font-bold text-xs" style="background:linear-gradient(135deg,#0e9fb3,#1d6fd1)">AI</div>
+      <div>
+        <div class="font-semibold text-sm leading-tight">Ертіс AI Көмекші</div>
+        <div class="text-xs muted">Гидрологиялық талдау • Live деректер</div>
+      </div>
+    </div>
+    <div class="flex items-center gap-1.5">
+      <button id="aiClear" type="button" class="btn text-xs py-1 px-2.5" title="Тарихты тазарту">Тазарту</button>
+      <button id="aiClose" type="button" class="btn icon-btn w-8 h-8 text-sm" title="Жабу">✕</button>
+    </div>
+  </div>
+
+  <div id="aiMessages" class="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
+    <div class="ai-msg ai-msg-bot">
+      Сәлем! Мен <b>Ертіс AI</b> — Семей гидрологиялық платформасының көмекшісімін. Базадағы нақты су деңгейін, температураны және тасқын тәуекелін талдап бере аламын. Сұрағыңызды қазақ немесе орыс тілінде жазыңыз.
+    </div>
+  </div>
+
+  <div class="px-3 py-2 border-t divider flex gap-1.5 overflow-x-auto">
+    <button type="button" class="ai-chip ai-quick" data-prompt="Таңдалған бекеттің ағымдағы жағдайына қысқаша талдау жаса.">Ағымдағы талдау</button>
+    <button type="button" class="ai-chip ai-quick" data-prompt="Қазіргі деректер мен симуляция бойынша Семейде тасқын қаупі бар ма?">Тасқын қаупі</button>
+    <button type="button" class="ai-chip ai-quick" data-prompt="Барлық бекеттерді салыстырып, қысқаша есеп бер.">Барлық бекеттер</button>
+  </div>
+
+  <form id="aiForm" class="p-3 border-t divider flex items-center gap-2">
+    <input id="aiInput" type="text" class="field text-sm py-2" placeholder="Сұрақ жазыңыз..." autocomplete="off" required>
+    <button id="aiSendBtn" type="submit" class="btn btn-primary py-2 px-3.5 text-sm shrink-0">Жіберу</button>
+  </form>
+</section>
+ 
+<!-- SUPABASE JS v2 + AI ASSISTANT -->
+<script type="module">
+  import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+
+  const SUPABASE_URL = "https://btweapvzvjcuaehdfcjc.supabase.co";
+  const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_usE8RReLm_Ee3_33a9Ai0g_sKrWvtix";
+  const AI_API_KEY = "AQ.Ab8RN6LUaV7k1mPS2PLKdyv1f_bA7xS-i8qUGLIDZu75vLMG9A";
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+  let state = { stations: [], currentId: null, data: [] };
+  let mockStations = [];
+  let mockMeasurements = {};
+  let analyticsData = {};
+  let currentUser = {};
+  let aiHistory = [];
+  let map = null, chart = null, weeklyChart = null, mapMarkers = [];
+
+  const $ = id => document.getElementById(id);
+  const fmt = (n, d = 1) => Number(n).toLocaleString('ru-RU', { minimumFractionDigits: d, maximumFractionDigits: d });
+
+  function toast(msg) {
+    const el = document.createElement('div');
+    el.className = 'toast glass';
+    el.innerHTML = `<span class="text-accent font-bold">●</span> ${msg}`;
+    $('toasts').appendChild(el);
+    setTimeout(() => el.remove(), 3500);
+  }
+
+  function showSupabaseError(actionText, error) {
+    console.error(`SUPABASE ҚАТЕСІ (${actionText}):`, error);
+    alert(`ҚАТЕ ШЫҚТЫ!\n\nОрындалған әрекет: ${actionText}\nҚате коды: ${error.code || 'Белгісіз код'}\nСебебі: ${error.message || error}`);
+  }
+
+  function generateResearchData(base = 340) {
+    let arr = [];
+    let now = new Date();
+    for (let i = 30; i >= 0; i--) {
+      let d = new Date(now.getTime() - i * 24 * 3600 * 1000 / 3);
+      let variation = Math.sin(i * 0.5) * 12 + Math.cos(i * 0.2) * 5;
+      arr.push({
+        created_at: d.toISOString().replace('T', ' ').slice(0, 19),
+        level: Number((base + variation).toFixed(1)),
+        temperature: Number((12.2 + Math.cos(i * 0.2) * 2.5).toFixed(1))
+      });
+    }
+    return arr;
+  }
+
+  window.editStation = (id) => {
+    const st = mockStations.find(s => s.id === id);
+    if (!st) return;
+    $('stationModalTitle').textContent = 'Бекетті өзгерту';
+    $('editStationId').value = st.id;
+    $('stName').value = st.name;
+    $('stLat').value = st.lat;
+    $('stLng').value = st.lng;
+    $('stLevel').value = st.latest_level || 340;
+    $('stationDialog').showModal();
+  };
+
+  window.deleteStation = async (id) => {
+    if (mockStations.length <= 1) {
+      toast('Кем дегенде 1 бекет қалуы тиіс!');
+      return;
+    }
+    if (confirm('Бұл бекетті өшіргіңіз келетініне сенімдісіз бе? (Supabase базасынан өшіріледі)')) {
+      try {
+        const { error } = await supabase.from("stations").delete().eq("id", id);
+        if (error) throw error;
+        toast('Бекет Supabase-тен жойылды!');
+        await fetchFromSupabase();
+      } catch (error) {
+        showSupabaseError('Бекетті өшіру', error);
+      }
+    }
+  };
+
+  // ==================== AI ASSISTANT ====================
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  function formatAiText(text) {
+    return escapeHtml(text)
+      .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+      .replace(/\*(.+?)\*/g, '<i>$1</i>')
+      .replace(/`([^`]+)`/g, '<code class="px-1 py-0.5 rounded bg-black/20 font-mono text-xs">$1</code>')
+      .replace(/\n/g, '<br>');
+  }
+
+  function appendAiMessage(role, htmlContent) {
+    const box = $('aiMessages');
+    const div = document.createElement('div');
+    div.className = `ai-msg ${role === 'user' ? 'ai-msg-user' : 'ai-msg-bot'}`;
+    div.innerHTML = htmlContent;
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+    return div;
+  }
+
+  function buildHydroContext() {
+    const activeStation = state.stations.find(s => s.id == state.currentId);
+    const recent = (state.data || []).slice(-10);
+    const simOffset = $('simRange') ? Number($('simRange').value) : 0;
+
+    const stationsSummary = state.stations.map(s =>
+      `- ${s.name} (ID: ${s.id}): соңғы деңгей ${s.latest_level} см, координаттар (${s.lat}, ${s.lng})`
+    ).join('\n');
+
+    const recentSummary = recent.map(r =>
+      `${r.created_at}: ${r.level} см, ${r.temperature}°C`
+    ).join('\n');
+
+    return `Сен "Семей - Ертіс Су Мониторингі" ғылыми-аналитикалық платформасының AI көмекшісісің.
+Пайдаланушы қай тілде жазса (қазақша немесе орысша), сол тілде нақты, қысқа және түсінікті жауап бер.
+Шекті мәндер: 380 см-ден жоғары — ескерту (Ескерту), 450 см-ден жоғары — қауіпті деңгей (Тасқын қаупі).
+
+БАЗАДАҒЫ БАРЛЫҚ БЕКЕТТЕР:
+${stationsSummary || 'Деректер жоқ'}
+
+ҚАЗІР ТАҢДАЛҒАН БЕКЕТ: ${activeStation ? activeStation.name : 'таңдалмаған'}
+СОҢҒЫ 10 ӨЛШЕМ:
+${recentSummary || 'Өлшемдер жоқ'}
+
+ТАСҚЫН СИМУЛЯЦИЯСЫ (қосымша көтеру): +${simOffset} см
+(Пороги симуляции: Бейбітшілік аралы >=50 см ескерту / >=130 см қауіпті; Мирный кенті >=100 / >=180 см; Шығыс саяжайлары >=150 / >=220 см)
+
+ҒЫЛЫМИ ЖАЗБАЛАР:
+Тарихи анықтама: ${analyticsData.historicalNotes || 'жоқ'}
+Болжам: ${analyticsData.forecastText || 'жоқ'}`;
+  }
+
+  async function askAI(userText) {
+    const cleanText = userText.trim();
+    if (!cleanText) return;
+
+    appendAiMessage('user', escapeHtml(cleanText));
+    aiHistory.push({ role: 'user', parts: [{ text: cleanText }] });
+
+    const typingEl = appendAiMessage('bot', '<div class="ai-dots"><span></span><span></span><span></span></div>');
+    const sendBtn = $('aiSendBtn');
+    const input = $('aiInput');
+    sendBtn.disabled = true;
+    input.disabled = true;
+
+    const payload = {
+      systemInstruction: {
+        parts: [{ text: buildHydroContext() }]
+      },
+      contents: aiHistory.slice(-10),
+      generationConfig: {
+        temperature: 0.4,
+        maxOutputTokens: 1024
+      }
+    };
+
+    const encodedKey = encodeURIComponent(AI_API_KEY);
+    const endpoints = [
+      `https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-2.5-flash:generateContent?key=${encodedKey}`,
+      `https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-2.0-flash:generateContent?key=${encodedKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodedKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodedKey}`
+    ];
+
+    let replyText = null;
+    let lastError = '';
+
+    for (const url of endpoints) {
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          lastError = data?.error?.message || `HTTP ${res.status}`;
+          continue;
+        }
+        const candidateText = data?.candidates?.[0]?.content?.parts
+          ?.map(p => p.text || '')
+          .join('')
+          .trim();
+
+        if (candidateText) {
+          replyText = candidateText;
+          break;
+        }
+        lastError = 'Бос жауап қайтарылды';
+      } catch (err) {
+        lastError = err.message || String(err);
+      }
+    }
+
+    if (replyText) {
+      aiHistory.push({ role: 'model', parts: [{ text: replyText }] });
+      typingEl.innerHTML = formatAiText(replyText);
+    } else {
+      aiHistory.pop();
+      typingEl.innerHTML = `<span class="t-danger font-semibold">AI серверімен байланыс қатесі:</span><br>${escapeHtml(lastError)}<br><span class="text-xs muted">Егер файл тікелей дискіден (file://) ашылса, оны Live Server немесе локалды сервер арқылы ашып көріңіз.</span>`;
+    }
+
+    $('aiMessages').scrollTop = $('aiMessages').scrollHeight;
+    sendBtn.disabled = false;
+    input.disabled = false;
+    input.focus();
+  }
+
+  function setupAiAssistant() {
+    $('aiFab').onclick = () => {
+      $('aiPanel').classList.toggle('hidden');
+      if (!$('aiPanel').classList.contains('hidden')) {
+        $('aiInput').focus();
+      }
+    };
+    $('aiClose').onclick = () => $('aiPanel').classList.add('hidden');
+    $('aiClear').onclick = () => {
+      aiHistory = [];
+      $('aiMessages').innerHTML = `
+        <div class="ai-msg ai-msg-bot">
+          Чат тазартылды. Жаңа сұрақ қойыңыз!
+        </div>`;
+    };
+    $('aiForm').onsubmit = async (e) => {
+      e.preventDefault();
+      const text = $('aiInput').value;
+      $('aiInput').value = '';
+      await askAI(text);
+    };
+    document.querySelectorAll('.ai-quick').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const prompt = btn.getAttribute('data-prompt');
+        if (prompt && !$('aiSendBtn').disabled) askAI(prompt);
+      });
+    });
+  }
+  // ======================================================
+
+  async function initApp() {
+    toast('Серверге қосылуда...');
+    setupEventListeners();
+    setupAiAssistant();
+    initChart();
+    initMap();
+    await fetchFromSupabase();
+    toast('Деректер Supabase-тен сәтті жүктелді!');
+    setInterval(updateClock, 1000);
+    updateClock();
+  }
+
+  async function fetchFromSupabase() {
+    try {
+      const { data: settingsRows, error: settingsErr } = await supabase
+        .from("settings")
+        .select("key, value")
+        .in("key", ["currentUser", "analytics"]);
+      if (settingsErr) throw settingsErr;
+
+      const settingsMap = {};
+      (settingsRows || []).forEach(row => { settingsMap[row.key] = row.value; });
+
+      if (settingsMap.currentUser) {
+        currentUser = settingsMap.currentUser;
+      } else {
+        currentUser = {
+          isAuth: false,
+          name: 'Зерттеуші',
+          email: 'eco@semey.kz',
+          phone: '+7 (708) 000-00-00',
+          org: 'Экология Институты'
+        };
+      }
+
+      if (settingsMap.analytics) {
+        analyticsData = settingsMap.analytics;
+      } else {
+        analyticsData = {
+          historicalNotes: 'Экологиялық зерттеу (2024-2026): Ертіс өзенінің Семей аумағындағы деңгейі Шүлбі СЭС-нің попусктеріне тікелей тәуелді. Жылдық орташа су шығыны шамамен 860 м³/с құрайды. Соңғы 10 жылда климаттың өзгеруіне байланысты су деңгейінің 15%-ға төмендеу тренді байқалды.',
+          forecastText: 'Қазгидромет болжамы: Алтай тауларындағы қардың еруіне және Шүлбі СЭС-нің жоспарлы су жіберуіне байланысты алдағы 10 күнде су деңгейінің 20-35 см-ге көтерілуі күтілуде. Бейбітшілік аралындағы эрозия процестерін қадағалау ұсынылады.'
+        };
+        const { error: seedAnErr } = await supabase
+          .from("settings")
+          .upsert({ key: "analytics", value: analyticsData });
+        if (seedAnErr) throw seedAnErr;
+      }
+
+      const { data: stRows, error: stErr } = await supabase
+        .from("stations")
+        .select("*")
+        .order("id", { ascending: true });
+      if (stErr) throw stErr;
+
+      if (!stRows || stRows.length === 0) {
+        mockStations = [
+          { id: 1, name: 'Семей Орталық мінбері (Ертіс)', lat: 50.4150, lng: 80.2500, latest_level: 345.2 },
+          { id: 2, name: 'Бобровка ауылы тұсы', lat: 50.4420, lng: 80.2000, latest_level: 328.0 },
+          { id: 3, name: 'Жаңасемей гидропосты', lat: 50.4280, lng: 80.2280, latest_level: 352.5 }
+        ];
+        const { error: seedStErr } = await supabase.from("stations").upsert(mockStations);
+        if (seedStErr) throw seedStErr;
+      } else {
+        mockStations = stRows;
+      }
+
+      const { data: mRows, error: mErr } = await supabase
+        .from("measurements")
+        .select("*")
+        .order("created_at", { ascending: true });
+      if (mErr) throw mErr;
+
+      if (!mRows || mRows.length === 0) {
+        mockMeasurements = {
+          1: generateResearchData(342),
+          2: generateResearchData(325),
+          3: generateResearchData(350)
+        };
+        const batch = [];
+        for (let stId in mockMeasurements) {
+          for (let m of mockMeasurements[stId]) {
+            batch.push({ station_id: Number(stId), ...m });
+          }
+        }
+        const { error: seedMErr } = await supabase.from("measurements").insert(batch);
+        if (seedMErr) throw seedMErr;
+      } else {
+        mockMeasurements = {};
+        mRows.forEach(row => {
+          if (!mockMeasurements[row.station_id]) mockMeasurements[row.station_id] = [];
+          mockMeasurements[row.station_id].push(row);
+        });
+      }
+
+      state.stations = mockStations;
+      if (!state.stations.some(s => s.id == state.currentId) && state.stations.length) {
+        state.currentId = state.stations[0].id;
+      }
+
+      updateUI();
+    } catch (e) {
+      showSupabaseError('Базадан деректерді оқу (fetchFromSupabase)', e);
+    }
+  }
+
+  function setupEventListeners() {
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const tabId = btn.getAttribute('data-tab');
+        ['dashboard', 'weekly', 'analytics', 'stations', 'simulation', 'profile'].forEach(t => {
+          const el = $(`tab-${t}`);
+          if (el) el.classList.toggle('hidden', t !== tabId);
+        });
+
+        if (tabId === 'dashboard' && map) setTimeout(() => map.invalidateSize(), 200);
+        if (tabId === 'weekly') renderWeeklyTab();
+      });
+    });
+
+    $('refreshBtn').onclick = async () => {
+      const btn = $('refreshBtn');
+      const originalText = btn.textContent;
+      btn.textContent = 'Жүктелуде...';
+      await fetchFromSupabase();
+      btn.textContent = originalText;
+      toast('Барлық деректер базадан жаңартылды!');
+    };
+
+    $('themeBtn').onclick = () => {
+      const isDark = document.documentElement.classList.toggle('dark');
+      localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    };
+
+    $('csvBtn').onclick = () => {
+      if (!state.data || state.data.length === 0) return toast('Деректер жоқ!');
+      let csv = 'Уақыт,Деңгей (см),Температура (°C)\n';
+      state.data.forEach(r => { csv += `${r.created_at},${r.level},${r.temperature}\n`; });
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `ertis_research_${state.currentId}_${new Date().getTime()}.csv`;
+      link.click();
+      toast('CSV файл сәтті жүктелді');
+    };
+
+    async function saveUser() {
+      try {
+        const { error } = await supabase
+          .from("settings")
+          .upsert({ key: "currentUser", value: currentUser });
+        if (error) throw error;
+      } catch (error) {
+        showSupabaseError('Қолданушы деректерін сақтау', error);
+      }
+    }
+
+    $('formLogin').onsubmit = async (e) => {
+      e.preventDefault();
+      currentUser.isAuth = true;
+      await saveUser();
+      updateUI();
+      toast('Сәтті кірдіңіз!');
+    };
+
+    $('formRegister').onsubmit = async (e) => {
+      e.preventDefault();
+      currentUser = {
+        isAuth: true,
+        name: $('regName').value,
+        email: $('regEmail').value,
+        phone: $('regPhone').value,
+        org: $('regOrg').value
+      };
+      await saveUser();
+      updateUI();
+      toast('Тіркелдіңіз!');
+    };
+
+    $('btnSaveProfile').onclick = async () => {
+      currentUser.name = $('editName').value;
+      currentUser.email = $('editEmail').value;
+      currentUser.phone = $('editPhone').value;
+      currentUser.org = $('editOrg').value;
+      await saveUser();
+      updateUI();
+      toast('Сақталды!');
+    };
+
+    $('btnLogout').onclick = async () => {
+      currentUser.isAuth = false;
+      await saveUser();
+      updateUI();
+      toast('Жүйеден шықтыңыз');
+    };
+
+    $('saveAnalyticsBtn').onclick = async () => {
+      try {
+        analyticsData.historicalNotes = $('anHistoricalNotes').value;
+        analyticsData.forecastText = $('anForecastText').value;
+        const { error } = await supabase
+          .from("settings")
+          .upsert({ key: "analytics", value: analyticsData });
+        if (error) throw error;
+        toast('Зерттеу деректері Supabase-ке сақталды!');
+      } catch (error) {
+        showSupabaseError('Аналитика деректерін сақтау', error);
+      }
+    };
+
+    $('openEntry').onclick = () => {
+      if (state.stations.length === 0) return toast('Бекеттер табылған жоқ!');
+      $('entryDialog').showModal();
+    };
+    $('entryClose').onclick = $('entryCancel').onclick = () => $('entryDialog').close();
+
+    $('entryForm').onsubmit = async (e) => {
+      e.preventDefault();
+      const btn = $('entryForm').querySelector('button[type="submit"]');
+      try {
+        btn.textContent = 'Сақталуда...';
+        btn.disabled = true;
+
+        const stId = Number($('fStation').value);
+        const newRecord = {
+          station_id: stId,
+          created_at: new Date().toISOString().replace('T', ' ').slice(0, 19),
+          level: Number($('fLevel').value),
+          temperature: Number($('fTemp').value)
+        };
+
+        const { error: mErr } = await supabase.from("measurements").insert(newRecord);
+        if (mErr) throw mErr;
+
+        let st = mockStations.find(s => s.id === stId);
+        if (st) {
+          st.latest_level = newRecord.level;
+          const { error: stErr } = await supabase
+            .from("stations")
+            .update({ latest_level: newRecord.level })
+            .eq("id", stId);
+          if (stErr) throw stErr;
+        }
+
+        $('entryDialog').close();
+        toast('Жаңа өлшем базаға сақталды!');
+        await fetchFromSupabase();
+        $('entryForm').reset();
+      } catch (error) {
+        showSupabaseError('Жаңа өлшемді (су деңгейін) базаға қосу', error);
+      } finally {
+        btn.textContent = 'Сақтау';
+        btn.disabled = false;
+      }
+    };
+
+    $('openAddStation').onclick = () => {
+      $('stationModalTitle').textContent = 'Жаңа бекет қосу';
+      $('editStationId').value = '';
+      $('stName').value = '';
+      $('stLat').value = '50.4150';
+      $('stLng').value = '80.2500';
+      $('stLevel').value = '340.0';
+      $('stationDialog').showModal();
+    };
+    $('stationClose').onclick = $('stationCancel').onclick = () => $('stationDialog').close();
+
+    $('stationForm').onsubmit = async (e) => {
+      e.preventDefault();
+      const btn = $('stationForm').querySelector('button[type="submit"]');
+      try {
+        btn.textContent = 'Сақталуда...';
+        btn.disabled = true;
+
+        const idVal = $('editStationId').value;
+        const name = $('stName').value;
+        const lat = Number($('stLat').value);
+        const lng = Number($('stLng').value);
+        const lvl = Number($('stLevel').value);
+
+        if (idVal) {
+          const { error } = await supabase
+            .from("stations")
+            .update({ name, lat, lng, latest_level: lvl })
+            .eq("id", Number(idVal));
+          if (error) throw error;
+          toast('Бекет жаңартылды!');
+        } else {
+          const newId = Date.now();
+          const newSt = { id: newId, name, lat, lng, latest_level: lvl };
+          const { error: stErr } = await supabase.from("stations").insert(newSt);
+          if (stErr) throw stErr;
+
+          const initialData = generateResearchData(lvl).map(m => ({ station_id: newId, ...m }));
+          const { error: mErr } = await supabase.from("measurements").insert(initialData);
+          if (mErr) throw mErr;
+          toast('Жаңа бекет қосылды!');
+        }
+        $('stationDialog').close();
+        await fetchFromSupabase();
+        $('stationForm').reset();
+      } catch (error) {
+        showSupabaseError('Жаңа бекетті (станцияны) базаға сақтау', error);
+      } finally {
+        btn.textContent = 'Сақтау';
+        btn.disabled = false;
+      }
+    };
+
+    $('stationSelect').onchange = (e) => {
+      state.currentId = Number(e.target.value);
+      loadMeasurementsUI();
+    };
+    $('rangeSelect').onchange = () => renderAll();
+    $('alertClose').onclick = () => { $('alertBanner').hidden = true; };
+
+    const simRange = $('simRange');
+    if (simRange) {
+      simRange.addEventListener('input', (e) => {
+        const val = parseInt(e.target.value);
+        $('simVal').textContent = `+${val} см`;
+
+        const updateSector = (id, cardId, threshold, extremeThreshold) => {
+          const el = $(id);
+          const card = $(cardId);
+          if (val < threshold) {
+            el.textContent = `Қауіп деңгейі: Төмен (${Math.round(val / 3)}%)`;
+            el.className = "text-sm font-bold pt-2 t-ok";
+            card.className = "glass p-5 rounded-2xl border-l-4 border-ok";
+          } else if (val >= threshold && val < extremeThreshold) {
+            el.textContent = `Қауіп деңгейі: Орташа (${Math.round(val / 1.5)}%) - Су жағадан асты`;
+            el.className = "text-sm font-bold pt-2 t-warn";
+            card.className = "glass p-5 rounded-2xl border-l-4 border-warn";
+          } else {
+            el.textContent = `ҚАУІПТІ: Аумақ толық су астында қалды! (99%)`;
+            el.className = "text-sm font-bold pt-2 t-danger animate-pulse";
+            card.className = "glass p-5 rounded-2xl border-l-4 border-danger";
+          }
+        };
+
+        updateSector('simSector1', 'simCard1', 50, 130);
+        updateSector('simSector2', 'simCard2', 100, 180);
+        updateSector('simSector3', 'simCard3', 150, 220);
+      });
+    }
+
+    $('authSwitchLogin').onclick = () => {
+      $('formLogin').classList.remove('hidden');
+      $('formRegister').classList.add('hidden');
+    };
+    $('authSwitchRegister').onclick = () => {
+      $('formRegister').classList.remove('hidden');
+      $('formLogin').classList.add('hidden');
+    };
+  }
+
+  function updateUI() {
+    loadStationsUI();
+    loadMeasurementsUI();
+    updateProfileHeaderUI();
+    loadAnalyticsToUI();
+    renderStationsTab();
+    renderProfileTab();
+  }
+
+  function updateClock() {
+    const now = new Date();
+    if ($('clockTime')) $('clockTime').textContent = now.toLocaleTimeString('kk-KZ');
+    if ($('clockDate')) $('clockDate').textContent = now.toLocaleDateString('kk-KZ', { day: 'numeric', month: 'long', year: 'numeric' });
+  }
+
+  function loadStationsUI() {
+    const sel = $('stationSelect'), fsel = $('fStation');
+    if (!sel || !fsel) return;
+    const html = state.stations.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+    sel.innerHTML = html;
+    fsel.innerHTML = html;
+    sel.value = state.currentId;
+    renderMapMarkers();
+  }
+
+  function loadMeasurementsUI() {
+    if (!state.currentId) return;
+    state.data = mockMeasurements[state.currentId] || [];
+    renderAll();
+  }
+
+  function updateProfileHeaderUI() {
+    if (currentUser && currentUser.isAuth) {
+      const initials = (currentUser.name || "П Ф").split(' ').map(n => n[0]).join('').toUpperCase();
+      $('badgeAvatar').textContent = initials;
+      $('badgeName').textContent = currentUser.name;
+      $('badgeRole').textContent = currentUser.org;
+    } else {
+      $('badgeAvatar').textContent = '—';
+      $('badgeName').textContent = 'Қонақ';
+      $('badgeRole').textContent = 'Кіру / Тіркелу';
+    }
+  }
+
+  function renderProfileTab() {
+    if (currentUser && currentUser.isAuth) {
+      $('profileAuthContainer').classList.add('hidden');
+      $('profileUserCabinet').classList.remove('hidden');
+      const initials = (currentUser.name || "П Ф").split(' ').map(n => n[0]).join('').toUpperCase();
+      $('cabAvatar').textContent = initials;
+      $('cabName').textContent = currentUser.name;
+      $('cabOrg').textContent = currentUser.org;
+      $('editName').value = currentUser.name;
+      $('editEmail').value = currentUser.email;
+      $('editPhone').value = currentUser.phone;
+      $('editOrg').value = currentUser.org;
+    } else {
+      $('profileAuthContainer').classList.remove('hidden');
+      $('profileUserCabinet').classList.add('hidden');
+    }
+  }
+
+  function renderStationsTab() {
+    const container = $('stationsListContainer');
+    if (!container) return;
+    container.innerHTML = state.stations.map(s => `
+      <div class="glass p-5 rounded-2xl flex flex-col justify-between gap-3">
+        <div>
+          <div class="flex items-center justify-between"><div class="font-semibold text-base">${s.name}</div><span class="num text-xl font-bold text-accent">${s.latest_level ? s.latest_level + ' см' : '—'}</span></div>
+          <div class="text-xs muted mt-1">Координаталар: Lat ${s.lat}, Lng ${s.lng}</div>
+          <div class="badge badge-ok mt-2"><i></i>Датчик қосылған (Online)</div>
+        </div>
+        <div class="flex items-center gap-2 pt-2 border-t divider">
+          <button type="button" class="btn text-xs py-1 px-3" onclick="window.editStation(${s.id})">Өзгерту</button>
+          <button type="button" class="btn text-xs py-1 px-3 t-danger" onclick="window.deleteStation(${s.id})">Жою</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function loadAnalyticsToUI() {
+    $('anHistoricalNotes').value = analyticsData.historicalNotes || '';
+    $('anForecastText').value = analyticsData.forecastText || '';
+  }
+
+  function renderWeeklyTab() {
+    if (!state.data || state.data.length === 0) return;
+    const sliceData = state.data.slice(-15);
+    const levels = sliceData.map(w => w.level);
+    const labels = sliceData.map(w => w.created_at.slice(5, 16).replace(' ', '\n'));
+
+    const curLevel = levels[levels.length - 1];
+    $('weekCurLevel').textContent = `${curLevel} см`;
+
+    const sum = levels.reduce((a, b) => a + b, 0);
+    const avg = (sum / levels.length).toFixed(1);
+    $('weekAvgLevel').textContent = `${avg} см`;
+
+    const min = Math.min(...levels);
+    const max = Math.max(...levels);
+    $('weekMinMax').textContent = `${min} - ${max} см`;
+
+    if (!weeklyChart) {
+      const ctx = $('weeklyChart').getContext('2d');
+      weeklyChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Су деңгейі (см)',
+            data: levels,
+            backgroundColor: 'rgba(14, 159, 179, 0.7)',
+            borderRadius: 4,
+            hoverBackgroundColor: 'rgba(14, 159, 179, 1)'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { min: min - 10, grid: { color: 'rgba(125,211,252,0.1)' } },
+            x: { grid: { display: false } }
+          }
+        }
+      });
+    } else {
+      weeklyChart.data.labels = labels;
+      weeklyChart.data.datasets[0].data = levels;
+      weeklyChart.options.scales.y.min = min - 10;
+      weeklyChart.update();
+    }
+
+    $('weeklyVisualBars').innerHTML = sliceData.slice().reverse().map(d => `
+      <div class="flex items-center justify-between p-3 bg-field rounded-xl border divider">
+        <span class="text-sm muted">${d.created_at}</span>
+        <span class="font-bold text-accent">${d.level} см</span>
+      </div>
+    `).join('');
+  }
+
+  function renderAll() {
+    const last = state.data[state.data.length - 1];
+    const selStation = state.stations.find(s => s.id == state.currentId);
+    if (selStation && $('stationName')) $('stationName').textContent = selStation.name;
+
+    if (last && $('kpiLevel')) {
+      $('kpiLevel').textContent = fmt(last.level);
+      $('kpiTemp').textContent = fmt(last.temperature);
+      if ($('gaugeFill')) {
+        const pct = Math.min(100, Math.max(8, (last.level / 520) * 100));
+        $('gaugeFill').style.height = `${pct}%`;
+      }
+      const isCrit = last.level > 450;
+      const isWarn = last.level > 380 && !isCrit;
+
+      $('kpiStatusText').textContent = isCrit ? 'Қауіпті деңгей!' : (isWarn ? 'Ескерту' : 'Тұрақты режим');
+      $('kpiStatus').className = `badge ${isCrit ? 'badge-danger' : (isWarn ? 'badge-warn' : 'badge-ok')} text-base px-3 py-1.5`;
+
+      if (isCrit) {
+        $('alertBanner').hidden = false;
+        $('alertText').textContent = `Су деңгейі (${last.level} см) асты!`;
+      } else {
+        $('alertBanner').hidden = true;
+      }
+    }
+
+    const rangeLimit = parseInt($('rangeSelect').value) || 24;
+    const sliceData = state.data.slice(-rangeLimit);
+
+    if (chart) {
+      chart.data.labels = sliceData.map(r => r.created_at.slice(11, 16));
+      chart.data.datasets[0].data = sliceData.map(r => r.level);
+
+      const levels = sliceData.map(r => r.level);
+      if (levels.length > 0) {
+        chart.options.scales.y.min = Math.min(...levels) - 5;
+        chart.options.scales.y.max = Math.max(...levels) + 5;
+      }
+      chart.update();
+    }
+
+    if ($('tableBody')) {
+      $('tableBody').innerHTML = state.data.slice(-15).reverse().map(r => `
+        <tr><td>${r.created_at}</td><td class="num font-bold text-accent">${fmt(r.level)}</td><td class="num">${fmt(r.temperature)}</td><td><span class="badge badge-ok">Тіркелді</span></td></tr>
+      `).join('');
+    }
+  }
+
+  function initChart() {
+    if (chart) return;
+    const ctx = $('levelChart').getContext('2d');
+    chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'Деңгей, см',
+          data: [],
+          borderColor: '#2dd4e6',
+          tension: 0.4,
+          fill: true,
+          backgroundColor: 'rgba(45,212,230,0.15)',
+          borderWidth: 2,
+          pointRadius: 3
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
+        scales: { y: { grid: { color: 'rgba(125,211,252,0.1)' } }, x: { grid: { display: false } } }
+      }
+    });
+  }
+
+  function initMap() {
+    if (map !== null) return;
+    map = L.map('map', { zoomControl: true, attributionControl: false }).setView([50.4112, 80.2275], 11);
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 }).addTo(map);
+    const irtyshRiverPath = [[50.3520, 81.0450], [50.4150, 80.2450], [50.4800, 80.0800]];
+    L.polyline(irtyshRiverPath, { color: '#0e9fb3', weight: 5, opacity: 0.9 }).addTo(map).bindPopup("<b>Ертіс өзені арнасы</b>");
+    setTimeout(() => { map.invalidateSize(); }, 250);
+  }
+
+  function renderMapMarkers() {
+    if (!map) return;
+    mapMarkers.forEach(m => map.removeLayer(m));
+    mapMarkers = [];
+    state.stations.forEach(s => {
+      const marker = L.marker([s.lat, s.lng]).addTo(map)
+        .bindPopup(`<b style="font-family: 'Rubik', sans-serif;">${s.name}</b><br>Соңғы деңгей: <b>${s.latest_level} см</b>`);
+      mapMarkers.push(marker);
+    });
+  }
+
+  initApp();
+</script>
+</body>
+</html>
